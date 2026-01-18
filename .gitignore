@@ -1,2 +1,4 @@
 myenv/
 library_files/
+scripts/*test*.py
+scripts/__pycache__
