@@ -4,6 +4,7 @@ from .utils import load_index, save_index
 
 
 def strict_search_library(index: List[Dict], query: str) -> List[Dict]:
+    """Simple strict search: matches query as substring in title or author."""
     query = query.lower()
     return [
         book
@@ -20,6 +21,7 @@ def strict_search_library(index: List[Dict], query: str) -> List[Dict]:
 
 
 def relaxed_search_library(haystack: str, needle: str) -> bool:
+    """Relaxed search: matches all words in the needle anywhere in the haystack."""
     haystack = haystack.lower()
     words = needle.lower().split()
     return all(word in haystack for word in words)
@@ -32,29 +34,36 @@ def filter_library(
     fmt: Optional[str] = None,
     mode: str = "strict",  # "strict" or "relaxed"
 ) -> List[Dict]:
+    """Return books that match filters. Title/author match using OR logic."""
+
     def cmp(haystack: str, needle: str) -> bool:
         if mode == "strict":
             return needle.lower() in haystack.lower()
         else:
             return relaxed_search_library(haystack, needle)
 
-    # Returns books that match filters.
     results = []
     for book in index:
         md = book.get("metadata", {})
 
-        if title and (not md.get("title") or not cmp(md["title"], title)):
-            continue
-        if author and (not md.get("author") or not cmp(md["author"], author)):
-            continue
-        if fmt and (not md.get("format") or fmt.lower() != md["format"].lower()):
-            continue
+        # Check title and author using OR
+        matches = False
+        if title and md.get("title") and cmp(md["title"], title):
+            matches = True
+        if author and md.get("author") and cmp(md["author"], author):
+            matches = True
+        if fmt and md.get("format") and fmt.lower() != md["format"].lower():
+            continue  # format must match exactly
 
-        results.append(book)
+        # Include if it matched any query or if no query provided
+        if matches or (not title and not author):
+            results.append(book)
+
     return results
 
 
 def display_library(index: List[Dict]) -> None:
+    """Print library entries nicely."""
     for book in index:
         title = book.get("metadata", {}).get("title", "Unknown title")
         author = book.get("metadata", {}).get("author", "Unknown author")
@@ -68,22 +77,7 @@ def display_library(index: List[Dict]) -> None:
 if __name__ == "__main__":
     index = load_index()
 
-    # Ask user for search criteria
-    title = input("Enter title to search (leave blank to skip): ").strip() or None
-    author = input("Enter author to search (leave blank to skip): ").strip() or None
-    fmt = (
-        input("Enter format to filter (epub, pdf, etc., leave blank to skip): ").strip()
-        or None
-    )
-
-    # Ask user for search mode
-    mode = input("Choose search mode ('strict' or 'relaxed'): ").strip().lower()
-    if mode not in ("strict", "relaxed"):
-        print("Invalid mode, defaulting to 'strict'")
-        mode = "strict"
-
-    # Filter library with chosen criteria and mode
-    results = filter_library(index, title=title, author=author, fmt=fmt, mode=mode)
-
-    print(f"\nFound {len(results)} books in {mode} mode:")
+    # Example usage: filter by title, author, and format
+    results = filter_library(index, title="dune", author="herbert", mode="relaxed")
+    print(f"Found {len(results)} books:")
     display_library(results)
