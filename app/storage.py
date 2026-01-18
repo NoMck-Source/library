@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 import shutil
 from pathlib import Path
@@ -7,6 +8,21 @@ from .metadata import extract_epub_metadata
 
 CHUNK_SIZE = 8192
 DEFAULT_LIBRARY_ROOT = Path(os.environ.get("LIBRARY_ROOT", "library_files"))
+INDEX_FILE = DEFAULT_LIBRARY_ROOT / "library_index.json"
+
+
+def load_index() -> list[dict]:
+    # Load the library index from the JSON file or return an empty list if it doesn't exist
+    if INDEX_FILE.exists():
+        with INDEX_FILE.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
+
+
+def save_index(entries: list[dict]) -> None:
+    # Save the library index to the JSON file
+    with INDEX_FILE.open("w", encoding="utf-8") as f:
+        json.dump(entries, f, indent=2, ensure_ascii=False)
 
 
 def compute_hash(path: Path | str) -> str:
@@ -42,6 +58,17 @@ def store_file(src_path: str | Path) -> dict[str, object]:
         except Exception as e:
             # On failure return empty metadata
             metadata = {"title": None, "author": None}
+    index = load_index()
+    if not any(entry["hash"] == file_hash for entry in index):
+        index.append(
+            {
+                "hash": file_hash,
+                "stored_path": str(dest_path),
+                "format": ext,
+                "metadata": metadata,
+            }
+        )
+    save_index(index)
 
     return {
         "hash": file_hash,
@@ -49,3 +76,27 @@ def store_file(src_path: str | Path) -> dict[str, object]:
         "format": ext,
         "metadata": metadata,
     }
+
+
+def import_folder(
+    folder_path: str | Path, recursive: bool = True
+) -> list[dict[str, object]]:
+    """
+    Scans folder for EPUB files and stores them in Library
+    Returns a list of info dicts for each stored file.
+    """
+    folder_path = Path(folder_path)
+    if not folder_path.exists():
+        raise FileNotFoundError(folder_path)
+
+    stored_files = []
+
+    pattern = "**/*.epub" if recursive else "*.epub"
+    for epub_file in folder_path.glob(pattern):
+        if epub_file.is_file():
+            try:
+                info = store_file(epub_file)
+                stored_files.append(info)
+            except Exception as e:
+                print(f"Failed to store {epub_file}: {e}")
+    return stored_files
