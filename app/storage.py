@@ -3,6 +3,8 @@ import os
 import shutil
 from pathlib import Path
 
+from .metadata import extract_epub_metadata
+
 CHUNK_SIZE = 8192
 DEFAULT_LIBRARY_ROOT = Path(os.environ.get("LIBRARY_ROOT", "library_files"))
 
@@ -16,7 +18,7 @@ def compute_hash(path: Path | str) -> str:
     return hasher.hexdigest()
 
 
-def store_file(src_path: str) -> dict[str, str]:
+def store_file(src_path: str | Path) -> dict[str, object]:
     # Store a file in the library and return its hash as filename.
     src = Path(src_path)
     file_hash = compute_hash(src)
@@ -33,8 +35,17 @@ def store_file(src_path: str) -> dict[str, str]:
     if not dest_path.exists():
         shutil.copy2(src, dest_path)
 
+    metadata = {}
+    if ext == "epub":
+        try:
+            metadata = extract_epub_metadata(dest_path)
+        except Exception as e:
+            # On failure return empty metadata
+            metadata = {"title": None, "author": None}
+
     return {
         "hash": file_hash,
         "stored_path": str(dest_path),
         "format": ext,
+        "metadata": metadata,
     }
