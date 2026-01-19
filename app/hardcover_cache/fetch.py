@@ -53,10 +53,6 @@ def fetch(library):
 
     selected_metadata = results[edition_idx]
 
-    cache_key = selected_metadata.get("isbn13") or selected_metadata.get("id")
-    if cache_key:
-        save_to_cache(cache_key, selected_metadata)
-    else:
-        print("Warning: No unique key for caching, skipping save.")
+    save_to_cache(selected_metadata)
 
     return selected_metadata

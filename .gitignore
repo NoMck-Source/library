@@ -3,3 +3,4 @@ library_files/
 scripts/*test*.py
 scripts/__pycache__
 .env
+app/hardcover_cache/metadata.json

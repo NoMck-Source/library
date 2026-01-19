@@ -48,13 +48,32 @@ def load_cache():
     return {}
 
 
-def save_to_cache(key, metadata):
-    # Save metadata to cache
+def save_to_cache(metadata):
+    """
+    Save metadata to cache using a unique key.
+    Prefer first ISBN, else slug, else title.
+    """
     cache = load_cache()
+
+    # Determine a unique key
+    key = None
+    if metadata.get("isbns"):
+        key = metadata["isbns"][0]
+    elif metadata.get("slug"):
+        key = metadata["slug"]
+    elif metadata.get("title"):
+        key = metadata["title"].lower().replace(" ", "_")
+
+    if not key:
+        print(
+            f"Warning: No unique key found for {metadata.get('title')}, skipping cache."
+        )
+        return
+
     cache[key] = metadata
     with open(METADATA_FILE, "w") as f:
         json.dump(cache, f, indent=2)
-    print(f"Cached metadata for {metadata.get('title')}")
+    print(f"Cached metadata for {metadata.get('title')} (key: {key})")
 
 
 #
@@ -118,15 +137,3 @@ def search_hardcover(query, per_page=25, page=1):
         )
 
     return books
-
-
-if __name__ == "__main__":
-    queries = ["Dune Frank Herbert", "The Eye of the Bedlam Bride Matt Dinniman"]
-
-    for q in queries:
-        print(f"\nSearching Hardcover for: {q}")
-        books = search_hardcover(q)
-        if not books:
-            print("No results found")
-        for b in books:
-            print(b["title"], "-", ", ".join(b["authors"]))
